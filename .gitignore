@@ -1,0 +1,1 @@
+*.pyc\n__pycache__/\nPipfile.lock\n*.db\n.env/
