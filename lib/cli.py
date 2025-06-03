@@ -265,7 +265,153 @@ def run_custom_sql_func():
     finally:
         session.close()
 
+def delete_player_func():
+    """Deletes a player from the database by ID."""
+    session = Session()
+    try:
+        player_id = int(input("Enter player ID to delete: "))
+        player = session.query(Player).get(player_id)
+
+        if not player:
+            print("Error: Player not found.")
+            return
+
+        confirm = input(f"Are you sure you want to delete player '{player.name}' (ID: {player.id}) and all associated data (stats, boot color, team associations)? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+
+            player.teams.clear() # This removes associations in the player_teams table
+
+            session.delete(player)
+            session.commit()
+            print(f"Deleted player: {player.name}")
+        else:
+            print("Player deletion cancelled.")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+def delete_team_func():
+    """Deletes a team from the database by ID."""
+    session = Session()
+    try:
+        team_id = int(input("Enter team ID to delete: "))
+        team = session.query(Team).get(team_id)
+
+        if not team:
+            print("Error: Team not found.")
+            return
+
+        confirm = input(f"Are you sure you want to delete team '{team.name}' (ID: {team.id}) and all its player associations? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+            # Remove all players from this team's association
+            team.players.clear() # This removes associations in the player_teams table
+
+            session.delete(team)
+            session.commit()
+            print(f"Deleted team: {team.name}")
+        else:
+            print("Team deletion cancelled.")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+def delete_stat_func():
+    """Deletes a player's stat entry by ID."""
+    session = Session()
+    try:
+        stat_id = int(input("Enter stat ID to delete: "))
+        stat = session.query(Stat).get(stat_id)
+
+        if not stat:
+            print("Error: Stat entry not found.")
+            return
+
+        confirm = input(f"Are you sure you want to delete stat entry for player ID {stat.player_id} (Goals: {stat.goals}, Assists: {stat.assists})? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+            session.delete(stat)
+            session.commit()
+            print(f"Deleted stat entry with ID: {stat_id}")
+        else:
+            print("Stat deletion cancelled.")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+def delete_boot_color_func():
+    """Deletes a player's boot color by player ID."""
+    session = Session()
+    try:
+        player_id = int(input("Enter player ID whose boot color you want to delete: "))
+        boot_color = session.query(BootColor).filter_by(player_id=player_id).first()
+
+        if not boot_color:
+            print(f"Error: No boot color found for player ID {player_id}.")
+            return
+
+        confirm = input(f"Are you sure you want to delete boot color '{boot_color.color}' for player ID {player_id}? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+            session.delete(boot_color)
+            session.commit()
+            print(f"Deleted boot color for player ID: {player_id}")
+        else:
+            print("Boot color deletion cancelled.")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+def remove_player_from_team_func():
+    """Removes a player from a specific team."""
+    session = Session()
+    try:
+        player_id = int(input("Enter player ID to remove from a team: "))
+        team_id = int(input("Enter team ID to remove the player from: "))
+
+        player = session.query(Player).get(player_id)
+        team = session.query(Team).get(team_id)
+
+        if not player or not team:
+            print("Error: Player or team not found. Please check IDs.")
+            return
+
+        if team not in player.teams:
+            print(f"Error: {player.name} is not currently in {team.name}.")
+            return
+
+        player.teams.remove(team)
+        session.commit()
+        print(f"Removed {player.name} from {team.name}")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
 # --- Main Menu Loop ---
+
+# Modify your display_main_menu function in lib/cli.py
 
 def display_main_menu():
     """Displays the interactive menu and handles user choices."""
@@ -280,7 +426,13 @@ def display_main_menu():
         print("7. List Players in Team (by ID)")
         print("8. List All Boot Colors")
         print("9. Show Top Scorers")
-        print("10. Run Custom SQL Query")
+        # print("10. Run Custom SQL Query")
+        print("--- Delete Options ---") # New section for clarity
+        print("11. Delete Player (by ID)")
+        print("12. Delete Team (by ID)")
+        print("13. Delete Stat Entry (by ID)")
+        print("14. Delete Boot Color (by Player ID)")
+        print("15. Remove Player From Team") # New option for many-to-many relationship
         print("0. Exit")
         print("------------------------------------")
 
@@ -306,6 +458,16 @@ def display_main_menu():
             show_top_scorers_func()
         elif choice == '10':
             run_custom_sql_func()
+        elif choice == '11': # New case for deleting player
+            delete_player_func()
+        elif choice == '12': # New case for deleting team
+            delete_team_func()
+        elif choice == '13': # New case for deleting stat
+            delete_stat_func()
+        elif choice == '14': # New case for deleting boot color
+            delete_boot_color_func()
+        elif choice == '15': # New case for removing player from team
+            remove_player_from_team_func()
         elif choice == '0':
             print("Exiting CLI. Goodbye!")
             break
@@ -315,3 +477,6 @@ def display_main_menu():
 # --- Script Entry Point ---
 if __name__ == '__main__':
     display_main_menu()
+
+# Add these functions to lib/cli.py alongside your existing functions
+
