@@ -1,174 +1,228 @@
-import click
+import os
+import sys
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import text
+
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+
 from lib.models import Session, Player, Stat, BootColor, Team
 
-@click.group()
-def cli():
-    """Football Player Stats CLI."""
-    pass
 
-@cli.command()
-@click.argument('name')
-def add_player(name):
-    """Add a football player."""
+def add_player_func():
+    """Adds a football player to the database."""
     session = Session()
     try:
-        Player.validate_name(None, name)
-        player = Player(name=name)
+        name = input("Enter player name: ").strip()
+        player = Player(name=name) 
         session.add(player)
         session.commit()
-        click.echo(f"Added player: {name}")
+        print(f"Added player: {name}")
     except ValueError as e:
-        click.echo(f"Error: {e}")
+        print(f"Error: {e}")
     except IntegrityError:
-        click.echo("Error: Player already exists")
+        print("Error: Player with this name already exists. Please use a unique name.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
         session.rollback()
     finally:
         session.close()
 
-@cli.command()
-@click.argument('name')
-def add_team(name):
-    """Add a football team."""
+def add_team_func():
+    """Adds a football team to the database."""
     session = Session()
     try:
-        Team.validate_name(None, name)
-        team = Team(name=name)
+        name = input("Enter team name: ").strip()
+        team = Team(name=name) 
         session.add(team)
         session.commit()
-        click.echo(f"Added team: {name}")
+        print(f"Added team: {name}")
     except ValueError as e:
-        click.echo(f"Error: {e}")
+        print(f"Error: {e}")
     except IntegrityError:
-        click.echo("Error: Team already exists")
+        print("Error: Team with this name already exists. Please use a unique name.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
         session.rollback()
     finally:
         session.close()
 
-@cli.command()
-@click.argument('player_id', type=int)
-@click.argument('team_id', type=int)
-def add_player_to_team(player_id, team_id):
-    """Add a player to a team."""
+def add_player_to_team_func():
+    """Adds an existing player to an existing team."""
     session = Session()
     try:
+        player_id = int(input("Enter player ID: "))
+        team_id = int(input("Enter team ID: "))
+
         player = session.query(Player).get(player_id)
         team = session.query(Team).get(team_id)
+
         if not player or not team:
-            click.echo("Error: Player or team not found")
+            print("Error: Player or team not found. Please check IDs.")
             return
+
+        if team in player.teams:
+            print(f"Error: {player.name} is already in {team.name}.")
+            return
+
         player.teams.append(team)
         session.commit()
-        click.echo(f"Added {player.name} to {team.name}")
-    except IntegrityError:
-        click.echo("Error: Player is already in this team")
+        print(f"Added {player.name} to {team.name}")
+    except ValueError:
+        print("Error: Invalid ID. Please enter a number.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
         session.rollback()
     finally:
         session.close()
 
-@cli.command()
-@click.argument('player_id', type=int)
-@click.argument('goals', type=int)
-@click.argument('assists', type=int)
-def add_stat(player_id, goals, assists):
-    """Add stats for a player."""
+def add_stat_func():
+    """Adds stats for a player."""
     session = Session()
     try:
+        player_id = int(input("Enter player ID: "))
+        goals = int(input("Enter goals: "))
+        assists = int(input("Enter assists: "))
+
         player = session.query(Player).get(player_id)
         if not player:
-            click.echo("Error: Player not found")
+            print("Error: Player not found.")
             return
-        Stat.validate_stats(None, goals, assists)
-        stat = Stat(player_id=player_id, goals=goals, assists=assists)
+
+        stat = Stat(player_id=player_id, goals=goals, assists=assists) # Validation handled in Stat's __init__
         session.add(stat)
         session.commit()
-        click.echo(f"Added stat for {player.name}: {goals} goals, {assists} assists")
+        print(f"Added stat for {player.name}: {goals} goals, {assists} assists")
     except ValueError as e:
-        click.echo(f"Error: {e}")
-    finally:
-        session.close()
-
-@cli.command()
-@click.argument('player_id', type=int)
-@click.argument('color')
-def add_boot_color(player_id, color):
-    """Add a boot color for a player."""
-    session = Session()
-    try:
-        player = session.query(Player).get(player_id)
-        if not player:
-            click.echo("Error: Player not found")
-            return
-        BootColor.validate_color(None, color)
-        boot_color = BootColor(player_id=player_id, color=color)
-        session.add(boot_color)
-        session.commit()
-        click.echo(f"Added boot color {color} for {player.name}")
-    except ValueError as e:
-        click.echo(f"Error: {e}")
-    except IntegrityError:
-        click.echo("Error: Player already has a boot color")
+        print(f"Error: {e}. Please enter non-negative numbers for goals/assists and a valid player ID.")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
         session.rollback()
     finally:
         session.close()
 
-@cli.command()
-@click.argument('player_id', type=int)
-def list_player_stats(player_id):
-    """List stats, boot color, and teams for a player."""
+def add_boot_color_func():
+    """Adds a boot color for a player."""
     session = Session()
     try:
+        player_id = int(input("Enter player ID: "))
+        
         player = session.query(Player).get(player_id)
         if not player:
-            click.echo("Error: Player not found")
+            print("Error: Player not found.")
             return
-        stats = player.stats
-        stat_list = [(s.goals, s.assists) for s in stats]  # Tuple for stats
-        total_goals = sum(s[0] for s in stat_list)
-        total_assists = sum(s[1] for s in stat_list)
-        stats_dict = {"total_goals": total_goals, "total_assists": total_assists}  # Dict for summary
-        boot_color = player.boot_color.color if player.boot_color else "None"
-        teams = [t.name for t in player.teams]  # List for teams
-        click.echo(f"Stats for {player.name}: {stats_dict}, Boot Color: {boot_color}, Teams: {teams}")
+
+        if player.boot_color:
+            print(f"Error: {player.name} already has boot color {player.boot_color.color}.")
+            print("To change it, you would need an update feature (not implemented in this menu).")
+            return
+        
+        valid_colors = ["Gold", "Blue", "Red", "White", "Black"]
+        color = input(f"Enter boot color ({', '.join(valid_colors)}): ").strip()
+
+        boot_color = BootColor(player_id=player_id, color=color) 
+        session.add(boot_color)
+        session.commit()
+        print(f"Added boot color {color} for {player.name}")
+    except ValueError as e:
+        print(f"Error: {e}. Please enter a valid player ID and color.")
+        session.rollback()
+    except IntegrityError:
+        print("Error: A unique boot color already exists for this player (or player ID is invalid).")
+        session.rollback()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        session.rollback()
     finally:
         session.close()
 
-@cli.command()
-def list_boot_colors():
-    """List all player boot colors."""
+def list_player_stats_func():
+    """Lists stats, boot color, and teams for a specific player."""
+    session = Session()
+    try:
+        player_id = int(input("Enter player ID: "))
+        player = session.query(Player).get(player_id)
+        if not player:
+            print("Error: Player not found.")
+            return
+        
+        stats = player.stats
+        total_goals = sum(s.goals for s in stats)
+        total_assists = sum(s.assists for s in stats)
+        
+        boot_color_info = player.boot_color.color if player.boot_color else "None"
+        teams = [t.name for t in player.teams] if player.teams else ["None"]
+        
+        print(f"\n--- Details for {player.name} ---")
+        print(f"  Total Goals: {total_goals}")
+        print(f"  Total Assists: {total_assists}")
+        print(f"  Boot Color: {boot_color_info}")
+        print(f"  Teams: {', '.join(teams)}")
+        print("-------------------------------")
+    except ValueError:
+        print("Error: Invalid player ID. Please enter a number.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        session.close()
+
+def list_all_boot_colors_func():
+    """Lists all player boot colors."""
     session = Session()
     try:
         boot_colors = session.query(BootColor).all()
-        color_list = [f"{b.player.name}: {b.color}" for b in boot_colors]  # List for output
-        click.echo("Football Player Boot Colors:")
-        for item in color_list:
-            click.echo(item)
+        if not boot_colors:
+            print("No boot colors found.")
+            return
+        print("\n--- Football Player Boot Colors ---")
+        for bc in boot_colors:
+            if bc.player: 
+                print(f"  {bc.player.name}: {bc.color}")
+            else:
+                print(f"  Boot Color ID {bc.id}: {bc.color} (Player not found)")
+        print("-----------------------------------")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     finally:
         session.close()
 
-@cli.command()
-@click.argument('team_id', type=int)
-def list_team_players(team_id):
-    """List all players in a team."""
+def list_team_players_func():
+    """Lists all players in a specific team."""
     session = Session()
     try:
+        team_id = int(input("Enter team ID: "))
         team = session.query(Team).get(team_id)
         if not team:
-            click.echo("Error: Team not found")
+            print("Error: Team not found.")
             return
-        players = [p.name for p in team.players]  # List for players
-        click.echo(f"Players in {team.name}: {players}")
+        players = [p.name for p in team.players]
+        if not players:
+            print(f"No players found for {team.name}.")
+            return
+        print(f"\n--- Players in {team.name} ---")
+        for player_name in players:
+            print(f"  - {player_name}")
+        print("------------------------------")
+    except ValueError:
+        print("Error: Invalid team ID. Please enter a number.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     finally:
         session.close()
 
-@cli.command()
-def top_scorers():
-    """List top 3 goal scorers."""
+def show_top_scorers_func():
+    """Lists the top 3 goal scorers."""
     session = Session()
     try:
         from sqlalchemy.sql import func
-        top_scorers = (
+        top_scorers_data = (
             session.query(Player.name, func.sum(Stat.goals).label('total_goals'))
             .join(Stat)
             .group_by(Player.id)
@@ -176,25 +230,88 @@ def top_scorers():
             .limit(3)
             .all()
         )
-        click.echo("Top 3 Goal Scorers:")
-        for name, goals in top_scorers:  # Tuple unpacking
-            click.echo(f"{name}: {goals} goals")
+        if not top_scorers_data:
+            print("No top scorers found.")
+            return
+        print("\n--- Top 3 Goal Scorers ---")
+        for name, goals in top_scorers_data:
+            print(f"  {name}: {goals} goals")
+        print("--------------------------")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     finally:
         session.close()
 
-@cli.command()
-@click.argument('query')
-def run_sql(query):
-    """Run a custom SQL query."""
+def run_custom_sql_func():
+    """Runs a custom SQL query."""
     session = Session()
     try:
+        query = input("Enter SQL query: ").strip()
         result = session.execute(text(query)).fetchall()
+        if not result:
+            print("Query returned no results.")
+            return
+        
+        print("\n--- SQL Query Results ---")
+        if hasattr(result[0], '_fields'):
+            print(" | ".join(str(f) for f in result[0]._fields))
+            print("-" * (sum(len(str(f)) for f in result[0]._fields) + (len(result[0]._fields) - 1) * 3))
+        
         for row in result:
-            click.echo(row)
+            print(" | ".join(str(col) for col in row))
+        print("-------------------------")
     except Exception as e:
-        click.echo(f"Error: {e}")
+        print(f"Error executing SQL: {e}")
     finally:
         session.close()
 
+# --- Main Menu Loop ---
+
+def display_main_menu():
+    """Displays the interactive menu and handles user choices."""
+    while True:
+        print("\n--- Football Player Stats CLI Menu ---")
+        print("1. Add Player")
+        print("2. Add Team")
+        print("3. Add Player to Team")
+        print("4. Add Player Stats")
+        print("5. Add Player Boot Color")
+        print("6. List Player Stats (by ID)")
+        print("7. List Players in Team (by ID)")
+        print("8. List All Boot Colors")
+        print("9. Show Top Scorers")
+        print("10. Run Custom SQL Query")
+        print("0. Exit")
+        print("------------------------------------")
+
+        choice = input("Enter your choice: ").strip()
+
+        if choice == '1':
+            add_player_func()
+        elif choice == '2':
+            add_team_func()
+        elif choice == '3':
+            add_player_to_team_func()
+        elif choice == '4':
+            add_stat_func()
+        elif choice == '5':
+            add_boot_color_func()
+        elif choice == '6':
+            list_player_stats_func()
+        elif choice == '7':
+            list_team_players_func()
+        elif choice == '8':
+            list_all_boot_colors_func()
+        elif choice == '9':
+            show_top_scorers_func()
+        elif choice == '10':
+            run_custom_sql_func()
+        elif choice == '0':
+            print("Exiting CLI. Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please try again.")
+
+# --- Script Entry Point ---
 if __name__ == '__main__':
-    cli()
+    display_main_menu()

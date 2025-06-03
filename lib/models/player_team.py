@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, Table
-from lib.models import Base
+from .base import Base
+
 
 player_teams = Table(
     'player_teams',

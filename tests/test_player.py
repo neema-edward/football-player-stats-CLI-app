@@ -1,7 +1,7 @@
 import pytest
-from lib.models import Session, Player, Stat
+from lib.models import Session, Player, Stat 
+from lib.models.base import Base 
 from sqlalchemy import create_engine
-from lib.models import Base
 
 @pytest.fixture
 def setup_db():

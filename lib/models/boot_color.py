@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from lib.models import Base
+from .base import Base
 
 class BootColor(Base):
     """Represents a player's boot color."""
@@ -12,10 +12,15 @@ class BootColor(Base):
 
     player = relationship("Player", back_populates="boot_color")
 
+    def __init__(self, player_id, color):
+        self.validate_color(color) 
+        self.player_id = player_id
+        self.color = color
+
     def __repr__(self):
         return f"<BootColor(color={self.color})>"
 
-    def validate_color(self, color):
+    def validate_color(self, color): 
         """Validate boot color."""
         valid_colors = ["Gold", "Blue", "Red", "White", "Black"]
         if color not in valid_colors:
